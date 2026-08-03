@@ -17,40 +17,46 @@ anything the cluster itself can reconcile.
 
 ## Common interview questions
 
-**When do you still reach for Ansible in 2026, and when should you not?**
-Reach for it for host-level bootstrap that exists outside any cluster's
-reconciliation loop — OS packages, systemd services, wildcard DNS
-configuration, credential file permissions. Don't reach for it for anything
-a cluster can run declaratively (Helm charts, Kustomize overlays,
-cert-manager `Certificate` objects, ArgoCD Applications) — using Ansible
-there is a GitOps regression, quietly re-introducing an imperative,
-non-reconciled path next to a declarative one that's supposed to be the
-single source of truth.
+**When do you still reach for Ansible in 2026, and when should you
+not?** I still reach for Ansible for anything at the host level,
+outside any cluster's reconciliation loop entirely — installing OS
+packages, standing up systemd services, wiring wildcard DNS, setting
+credential file permissions. I don't reach for it for anything a
+cluster can already run declaratively: a Helm chart, a Kustomize
+overlay, a cert-manager `Certificate` object, an ArgoCD Application.
+Using Ansible for any of those would be a GitOps regression, quietly
+re-introducing an imperative path that nobody reconciles, right next
+to a declarative one that's supposed to be the single source of truth.
 
 **Idempotency vs. convergence vs. reconciliation — what's the actual
-difference?** Idempotency is a property of one task: running it twice
-produces the same result as running it once. Convergence is a system
-moving toward a described end state regardless of its starting point —
-what a well-written Ansible playbook approximates *at the moment you run
-it*. Reconciliation is a controller continuously and repeatedly driving
-actual state toward desired state on its own schedule, watching for drift
-indefinitely — this is what Kubernetes controllers and ArgoCD do that
-Ansible structurally does not; Ansible only converges when invoked.
+difference?** Idempotency is the smallest of the three: run one task
+twice, and the second run leaves the world exactly where the first run
+left it. Convergence is bigger: a whole system moving toward a
+described end state no matter where it started, which is what a
+well-written Ansible playbook gives me the moment I invoke it, and not
+one second longer. Reconciliation is bigger again: a controller
+watching actual state continuously and driving it back toward desired
+state on its own schedule, forever, which is what Kubernetes
+controllers and ArgoCD do and Ansible structurally never does. The line
+between the last two comes down to whether a human invoked it or a
+controller is watching, and Ansible sits firmly on the invoked side.
 
 **Why is a Kubernetes controller not just "Ansible on a timer"?** A
-controller watches actual state continuously via the API server's watch
-mechanism and reacts to drift immediately and indefinitely. A cron'd
-Ansible run only reconciles at whatever interval you schedule it and has
-no concept of watching at all — it's a poll, not a watch, and it stops
-being useful the moment nobody's running it.
+controller isn't polling, it's watching — it holds a live watch on the
+API server and reacts to drift immediately, for as long as the cluster
+exists. A cron'd Ansible run only reconciles at whatever interval I
+schedule it for, and it has no concept of watching at all. Call it a
+poll, not a watch, and remember it stops being useful the exact moment
+nobody's running it.
 
 **How does immutable infrastructure change the answer?** If a host is
-disposable and gets replaced rather than mutated, configuration management
-in place (Ansible's classic use case) shrinks even further — you'd rebuild
-the image or instance rather than converge an existing one. This project's
-one host is *not* disposable (it's the single developer machine everything
-runs on), which is part of why Ansible still has a real, if scoped, role
-here rather than none at all.
+disposable, if I'd rebuild it rather than mutate it, then Ansible's
+classic use case, configuration management in place, shrinks even
+further — I just rebuild the image or the instance instead of
+converging an existing one. This project's one host is the opposite of
+disposable: it's the single developer machine everything else runs on.
+That's a real part of why Ansible still keeps a scoped, genuine role
+here, rather than none at all.
 
 ## Gotchas hit in this project
 

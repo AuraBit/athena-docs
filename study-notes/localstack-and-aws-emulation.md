@@ -19,35 +19,40 @@ stand-in for "this project's one AWS account."
 
 ## Common interview questions
 
-**What is emulation good for, and where does it stop?** Good for exercising
-the actual API surface your IaC calls — create/read/update/delete
-semantics, IAM-style permission checks, S3 object lifecycle — at zero cost
-and with instant iteration. It stops the moment a service's behaviour
-depends on something the free tier doesn't implement at all
-(license-gated) or can't meaningfully implement locally regardless of tier
-(CloudFront's actual global edge network has no local stand-in).
+**What is emulation good for, and where does it stop?** Emulation is
+good for exercising the exact API surface my Terraform calls, at zero
+cost and with instant iteration — I get real create, read, update and
+delete semantics, IAM-style permission checks, and the full S3 object
+lifecycle. It stops being good the moment a service's behavior depends
+on something the free tier just doesn't implement at all, which is the
+license-gated case, or on something no local emulator could ever
+implement regardless of tier, like CloudFront's actual global edge
+network.
 
 **How do you avoid false confidence from a passing test against an
-emulator?** Never trust the health endpoint's own optimism — call the real
-API and inspect the actual response, and record the verification mode
-(`emulated` vs. `code+docs-only`) explicitly, per service, rather than
-inferring "the container answered 200" means "this service genuinely
-works here."
+emulator?** I don't trust the health endpoint's own optimism, ever. I
+call the real API myself and inspect the actual response, and I record
+a verification mode, either `emulated` or `code+docs-only`, explicitly
+per service. A container answering `200` never gets to mean "this
+service genuinely works here" on its own.
 
 **Why does this estate verify every apply with a read-back?** A green
-`terraform apply` against an emulator that silently no-ops, partially
-implements, or fakes success is indistinguishable from a real apply unless
-something independently confirms the resource actually exists and behaves
-as expected. The S3 round trip (create bucket, put an object, get it back,
-assert the body byte-for-byte, delete) exists specifically to catch that
-gap — a health check alone would not have.
+`terraform apply` against an emulator that silently no-ops, half-
+implements something, or just fakes success looks exactly like a real
+apply, unless something independently confirms the resource actually
+exists and behaves the way I expect. That's why we built the S3 round
+trip: create a bucket, put an object in it, get that object back,
+check the body byte-for-byte, then delete it. A health check alone
+would never have caught that gap.
 
-**What are the tradeoffs of emulation versus a real AWS sandbox account?**
-Emulation is free and instant but carries real coverage gaps (RDS,
-ElastiCache, CloudFront, and EKS are license-gated on this project's free
-Hobby tier). A real sandbox account has zero fidelity gap but costs real
-money — incompatible with this project's hard $0 constraint, which is the
-entire reason the tradeoff exists in the first place.
+**What are the tradeoffs of emulation versus a real AWS sandbox
+account?** Emulation costs nothing and iterates instantly, but it
+leaves real coverage gaps behind: RDS, ElastiCache, CloudFront, and EKS
+are all license-gated on this project's free Hobby tier, and I hit that
+live. A real AWS sandbox account has zero fidelity gap, full stop, but
+it costs real money, and that's flatly incompatible with this
+project's hard $0 constraint. That constraint is the entire reason
+this tradeoff exists here in the first place.
 
 ## Gotchas hit in this project
 
