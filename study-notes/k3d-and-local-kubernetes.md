@@ -18,38 +18,47 @@ to real EKS knowledge — nothing about *using* the cluster is a simulation.
 
 ## Common interview questions
 
-**k3d vs. kind — when does the difference actually matter?** k3d wraps k3s
-(SQLite instead of etcd by default, some controllers stripped, a lighter
-footprint, and a built-in local registry + LoadBalancer); kind is closer to
-vanilla upstream Kubernetes at a heavier steady-state cost, with no
-first-class registry or LoadBalancer of its own. The difference matters
-specifically when a phase's learning goal is etcd or control-plane-component
-internals — fall back to kind for that one cluster in that case. For this
-project's actual focus (GitOps, CI, observability, scheduling behaviour) it
-doesn't matter enough to give up k3d's lower footprint, especially since two
-clusters run simultaneously and continuously during study sessions.
+**k3d vs. kind — when does the difference actually matter?** We picked k3d
+for both clusters, and I would only reach for kind instead if a phase's
+whole learning goal were etcd or control-plane-component internals. k3d
+wraps k3s, which swaps the default etcd datastore for SQLite, strips a few
+non-essential controllers, and ships its own local registry and LoadBalancer
+out of the box, so it runs lighter and needs less setup scripting. kind
+stays closer to vanilla upstream Kubernetes at a heavier steady-state cost,
+and it gives you neither a first-class registry nor a LoadBalancer without
+you wiring one yourself. For what this project is actually testing — GitOps,
+CI, observability, scheduling behaviour — that upstream fidelity doesn't buy
+us enough to give up k3d's lower footprint, especially running two clusters
+at once, continuously, through a whole study session.
 
-**What does k3s strip out, and what does that cost you?** An alternate
-default storage backend (SQLite, not etcd) and some non-essential
-controllers/cloud-provider integrations. Irrelevant to scheduling, GitOps,
-or CI questions; a real gap only if the interview question is specifically
-about etcd internals or a specific stripped controller.
+**What does k3s strip out, and what does that cost you?** For the questions
+this estate actually gets asked, it costs nothing. k3s swaps the default
+etcd datastore for SQLite and drops a handful of non-essential controllers
+and cloud-provider integrations, and none of that touches scheduling,
+GitOps, or CI behaviour. The one place it would actually cost me is if an
+interviewer asked specifically about etcd internals or about one of those
+exact stripped controllers, and there I would just say so plainly rather
+than bluff an answer this cluster can't back up.
 
-**Why are the server nodes tainted here, and what does that mimic?**
-`CriticalAddonsOnly=true:NoExecute` forces every workload — smoke tests,
-ArgoCD, Prometheus, the Athena app itself — onto agent nodes only, the same
-scheduling discipline a real EKS cluster enforces structurally: EKS's
-control plane is invisible managed infrastructure you never schedule
-workloads onto and never even see as a node.
+**Why are the server nodes tainted here, and what does that mimic?** We
+tainted the server nodes ourselves, with `CriticalAddonsOnly=true:NoExecute`,
+so every workload we run — smoke tests, ArgoCD, Prometheus, even the Athena
+app itself — lands on agent nodes only. That is us mimicking what a real
+EKS cluster already enforces structurally. EKS's control plane is invisible
+managed infrastructure. You never schedule a workload onto it, and you
+never even see it show up as a node.
 
 **What does a multi-node local cluster prove, and what does it not prove?**
-It faithfully proves pod scheduling topology: taints, tolerations, node
-counts, `kubectl drain` and PodDisruptionBudget behaviour, topology-spread
-constraints. It does **not** prove failure isolation — every "node" in
-both clusters is a container sharing this one host's kernel and Docker
-daemon; there is no equivalent to a real EC2 worker instance going down.
-Any answer derived from a drill against these clusters has to say "this
-proves scheduling behaviour, not failure isolation."
+It genuinely proves pod scheduling topology — taints landing where we
+expect, tolerations letting the right pods through, `kubectl drain` and
+PodDisruptionBudget behaviour holding up, topology-spread constraints
+spreading pods the way we configured them. What it does not prove is
+failure isolation, and I say that plainly rather than let the drill oversell
+itself. Every "node" in both clusters is a container sharing this one
+host's kernel and this one host's Docker daemon, so there is no equivalent
+to a real EC2 worker instance actually going down. Whatever we conclude from
+a drill against these clusters, we say it proves scheduling behaviour, not
+failure isolation.
 
 ## Gotchas hit in this project
 

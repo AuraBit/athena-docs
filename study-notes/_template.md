@@ -39,8 +39,35 @@ first, not a dictionary definition copied from the tool's own homepage.
 Real questions with the answer sketched inline, not just the question list —
 a question without an answer here is a to-do, not a study note. Prefer
 questions this project's own ADRs and RESEARCH.md already forced a real
-answer to over generic textbook questions; the goal is an answer you can
-give from this file alone, without opening the code.
+answer to over generic textbook questions.
+
+Being answerable from this file alone is necessary, and it is no longer
+sufficient on its own. Write every answer the way the Mental model spec
+above already asks you to write its opening line — the sentence you would
+actually say out loud, not a sentence built to be read — and hold that
+instruction across the whole answer, not just its first line. Six things
+follow from it.
+
+1. Lead with the answer. The first sentence commits to a position instead
+   of defining the term the question names.
+2. First person, tied to this estate. Say what you chose and why, naming
+   the real decision, the real file, the real constraint — not what "this
+   org" or "this project" does in the abstract.
+3. Breath-sized sentences. One idea per sentence, no semicolon chains and
+   no nested parentheticals — neither survives being spoken.
+4. Narrate lists, do not print them. Walk through items in sequence the way
+   you would to a person, saying what each one buys, instead of a
+   telegraphic run of field names.
+5. No markup carrying meaning. Emphasis comes from word choice and sentence
+   structure, never from bold or italics. A backticked identifier is fine
+   where you would genuinely pronounce it aloud.
+6. The bar is read aloud verbatim. Read the answer out loud exactly as
+   written, at interview pace. If you paraphrase on the fly, or reorder a
+   clause as you speak it, the answer is not finished.
+
+None of this costs content. If a fact is awkward to say in one breath,
+split it across two sentences — never shorten, soften or drop it just to
+make a sentence easier to say.
 
 ## Gotchas hit in this project
 
