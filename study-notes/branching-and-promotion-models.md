@@ -15,48 +15,57 @@ determines what "drift" even means for the pipeline built on top of it.
 
 ## Common interview questions
 
-**Trunk-based vs. GitFlow — what does each optimise for?** Trunk-based
-optimises for one continuously-integrated source of truth with small,
-frequently-merged changes and minimal long-lived divergence. GitFlow (and
-its relatives) optimise for isolating in-progress feature work behind
-longer-lived branches, at the cost of larger, riskier eventual merges and a
-more complex branch topology to reason about.
+**Trunk-based vs. GitFlow — what does each optimise for?** I'd say
+trunk-based optimizes for one continuously-integrated source of truth,
+with small, frequently-merged changes and minimal long-lived divergence.
+GitFlow and its relatives optimize for something different: isolating
+in-progress feature work behind longer-lived branches. That isolation
+costs you larger, riskier eventual merges and a branch topology that takes
+more effort to reason about, and this estate picked trunk-based
+deliberately to avoid paying that cost.
 
-**Why is branch-per-environment a documented GitOps anti-pattern?**
-Environment branches drift from each other over time as environment-specific
-hotfixes land directly on one branch and never get back-merged; promotion
-becomes cherry-pick-driven, which loses commit context and risks silently
-dropping a change; and the inter-branch diff becomes permanent and
-ever-growing instead of resolving to zero — the opposite of what a
-promotion model should produce. It also multiplies GitOps's own
-reconciliation-target ambiguity: "which branch is this environment actually
-tracking right now" becomes a real, silently-misconfigurable question
-instead of not existing at all.
+**Why is branch-per-environment a documented GitOps anti-pattern?** I've
+watched this fail in three separate ways, and branch-per-environment
+produces all three. First, environment branches drift from each other
+over time, because environment-specific hotfixes land directly on one
+branch and never get back-merged into the others. Second, promotion turns
+into a cherry-pick exercise, which loses commit context and risks silently
+dropping a change nobody meant to drop. Third, the inter-branch diff
+becomes permanent and keeps growing instead of resolving to zero, which is
+the exact opposite of what a promotion model is supposed to produce. On
+top of those three, it multiplies GitOps's own reconciliation-target
+ambiguity: the question of which branch an environment is actually
+tracking right now becomes a real, silently-misconfigurable question
+instead of one that doesn't exist at all.
 
-**Where does a merge queue help, and where does it just add latency?** It
-helps where multiple PRs can legitimately merge close together and their
-*combined* result needs verifying, not just each one in isolation — a
-monorepo with path-filtered CI, for example. It just adds latency on a path
-with no multi-PR-combination risk to protect: a fast-moving, bot-authored
-commit path, or a repository whose own concurrency risk is already solved
-at a different layer entirely (Terraform applies serialized by
-concurrency groups, not by combining PRs).
+**Where does a merge queue help, and where does it just add latency?** I
+reach for a merge queue where multiple pull requests can legitimately
+merge close together and their combined result, not just each one in
+isolation, genuinely needs verifying. A monorepo with path-filtered CI is
+exactly that case. It just adds latency where there is no
+multi-PR-combination risk to protect at all. A fast-moving, bot-authored
+commit path is one example of that. This estate's own Terraform stack is
+another: its concurrency risk is already solved at a different layer,
+applies serialized by concurrency groups rather than by combining PRs, so
+a queue there would only add wait time for nothing.
 
-**How do you gate production without blocking developers?** Bind the gate
-to the specific job that performs the risky write — the promotion-commit
-job, or the `terraform apply` job — via a GitHub Environment with required
-reviewers, not to the PR/branch-protection layer, which governs a different
-and earlier question (getting a change into `main` at all). This lets
-ordinary development keep moving at full speed while only the
+**How do you gate production without blocking developers?** I bind the
+gate to the specific job that performs the risky write, the
+promotion-commit job or the `terraform apply` job, using a GitHub
+Environment with required reviewers. I do not bind it to the PR or
+branch-protection layer, because that layer governs a different, earlier
+question: whether a change gets into `main` at all. Binding it this way
+lets ordinary development keep moving at full speed, and only the
 promotion-write itself pauses for approval.
 
 **What does continuous deployment require that continuous delivery does
-not?** CD requires the pipeline to actually perform the production deploy
-automatically once checks pass, with no human-in-the-loop gate anywhere.
-Continuous delivery keeps the release deployable at all times but still
-requires an explicit trigger — often a human approval — to actually ship
-it. This project's stg/prod Environment gates make it continuous delivery,
-not full continuous deployment, by deliberate design.
+not?** Continuous deployment requires the pipeline to perform the
+production deploy automatically once checks pass, with no human in the
+loop anywhere. Continuous delivery is different. It keeps the release
+deployable at all times but still requires an explicit trigger, often a
+human approval, to actually ship it. This estate's stg and prod
+Environment gates make it continuous delivery, not full continuous
+deployment, and I designed it that way deliberately.
 
 ## Gotchas hit in this project
 

@@ -18,42 +18,51 @@ not because GitHub Actions is unusually dangerous.
 ## Common interview questions
 
 **What can the default `GITHUB_TOKEN` do, and why does read-only-by-default
-matter?** It's scoped per-repository, per-run, and by default can be given
-broad write access — if a workflow step is compromised (a malicious
-dependency, a poisoned third-party action) with write-scoped defaults, it
-can push commits, approve PRs, or modify releases far beyond what the job
-actually needed. This org sets `default_workflow_permissions = read`
-organisation-wide, with individual jobs elevating explicitly, per-job, only
+matter?** The default `GITHUB_TOKEN` is scoped per repository and per run,
+and by default it can be handed broad write access. If a workflow step
+gets compromised, say by a malicious dependency or a poisoned third-party
+action, that write-scoped default lets it push commits, approve pull
+requests, or modify releases far beyond anything the job actually needed.
+I set `default_workflow_permissions = read` organisation-wide for exactly
+that reason, and I let individual jobs elevate explicitly, per job, only
 for the specific scopes they actually need.
 
-**Why is a version tag not a safe pin?** A mutable tag like `@v4` is a
-pointer, not a commit — the action's maintainer (or an attacker who
-compromises that maintainer's account) can force-move the tag to point at
-different code without your workflow file's reference changing at all. A
-full-length commit SHA is immutable; the tag is not.
+**Why is a version tag not a safe pin?** A tag like `@v4` is mutable. It's
+a pointer, not a commit, and the action's maintainer can force-move it to
+point at different code without a single character in my workflow file
+changing. An attacker who compromises that maintainer's account can do the
+same thing. A full-length commit SHA does not have that problem, because a
+SHA is immutable and a tag is not.
 
-**What is a pwn-request?** An attack class where a workflow triggered on
-`pull_request_target` (or a misconfigured trigger with elevated
-permissions/secrets available) checks out and executes a fork PR's own
-code with the *base* repository's privileges — the fork author's code runs
-with access it should never have, purely because of how the trigger was
-wired, not because of any code review failure.
+**What is a pwn-request?** A pwn-request is what happens when a workflow
+triggered on `pull_request_target`, or any trigger misconfigured with
+elevated permissions or secrets available, checks out and executes a fork
+PR's own code using the base repository's privileges. The fork author's
+code ends up running with access it should never have. That happens
+purely because of how I wired the trigger, not because any code review
+failed.
 
 **Why is a workflow approving its own pull request a problem?** It
-collapses the entire "someone other than the author reviewed this"
-guarantee — a workflow could open a PR and immediately approve it with the
-same automated identity, satisfying a required-review rule with zero real
-review. GitHub's own "Allow GitHub Actions to create and approve pull
-requests" organisation setting exists specifically to make this impossible
-by default; this org has it disabled.
+collapses the whole guarantee that someone other than the author reviewed
+a change. A workflow could open a pull request and immediately approve it
+using that same automated identity, satisfying a required-review rule with
+zero real review behind it. GitHub's own organisation setting, "Allow
+GitHub Actions to create and approve pull requests," exists specifically to
+make that impossible by default, and I have it disabled on this org.
 
-**How would you audit a repository's Actions posture in ten minutes?**
-Org level: `allowed_actions` mode and allowlist, `default_workflow_permissions`,
-`can_approve_pull_request_reviews`, `sha_pinning_required`. Repo level: the
-branch ruleset's required status checks, review count, and `bypass_actors`.
-Per-workflow: grep for any unpinned (`@vN`, not a 40-character SHA) action
-reference, check the top-level `permissions:` block is explicit and
-minimal, and check every trigger for `pull_request_target`.
+**How would you audit a repository's Actions posture in ten minutes?** I'd
+start at the org level and check four settings: the `allowed_actions` mode
+and its allowlist, `default_workflow_permissions`,
+`can_approve_pull_request_reviews`, and `sha_pinning_required`. That tells
+me what the org allows before I even look at a single repo. Next I'd drop
+to the repo level and read the branch ruleset: its required status checks,
+its required review count, and who sits in `bypass_actors`. That tells me
+what actually gates a merge here, not just what the org permits. Last I'd
+go per-workflow and grep for any unpinned action reference, meaning an
+`@vN` tag rather than a full 40-character SHA, confirm the top-level
+`permissions:` block is explicit and minimal, and check every trigger for
+`pull_request_target`. That last pass is where I'd actually catch a live
+pwn-request risk instead of just a policy gap.
 
 ## Gotchas hit in this project
 

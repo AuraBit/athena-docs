@@ -17,43 +17,50 @@ and drift-detection, the same class of problem Terraform exists to solve.
 
 ## Common interview questions
 
-**What belongs in Terraform, and what does not?** Anything with an API that
-genuinely supports declarative create/read/update/delete belongs in
-Terraform — org settings, teams, repositories, branch rulesets,
-Environments. What has *no* API at all cannot be Terraformed no matter how
-badly you want it to be: org creation itself, a bot account's email
-verification, the very first empty repository that will hold the Terraform
-code managing everything else. Those get a documented bootstrap-then-import
-step instead, not a workaround.
+**What belongs in Terraform, and what does not?** I put anything in
+Terraform that has an API genuinely supporting declarative create, read,
+update and delete — org settings, teams, repositories, branch rulesets,
+Environments all qualify. What has no API at all, I cannot Terraform no
+matter how badly I want to. This estate hit three of those: creating the
+org itself, verifying a bot account's email, and standing up the very
+first empty repository that would eventually hold the Terraform code
+managing everything else. Each of those gets a documented
+bootstrap-then-import step instead of a workaround, because pretending an
+API exists where it does not is the actual mistake, not the manual step
+itself.
 
-**How do you bring an existing hand-created resource under management?**
-`terraform import`, then treat "the following `terraform plan` reports zero
-changes" as the actual success condition — not "the import command
-exited 0." An import that leaves a diff means the `.tf` code doesn't
-accurately describe what was actually hand-bootstrapped: a real
-configuration mismatch that will either silently drift or get clobbered on
-the next `apply`, never a cosmetic difference to shrug off.
+**How do you bring an existing hand-created resource under management?** I
+run `terraform import`, and then I treat a subsequent `terraform plan`
+reporting zero changes as the actual success condition, not the import
+command itself exiting zero. If that plan still shows a diff, my `.tf`
+code does not accurately describe what got hand-bootstrapped, and that is
+a real configuration mismatch, not a cosmetic one. Left alone, a mismatch
+like that either drifts silently or gets clobbered on the next `apply`, so
+I do not consider an import finished until the plan comes back clean.
 
-**What do you do when the provider doesn't cover a feature?** First
-distinguish a genuine coverage gap (the field/behaviour exists in the
-API/UI, but no provider resource or argument exposes it at the pinned
-version) from a *total* API gap (nothing exists for any provider, or any
-`gh api` script, to call at all). For the first kind: name the gap
-explicitly, write a small idempotent script living next to the `.tf` it
-compensates for, and re-check whenever the provider version bumps. For the
-second kind — this project hit exactly one: fork-PR-approval-for-outside-collaborators
-has zero REST or GraphQL surface, confirmed by exhaustively probing every
-plausible endpoint path and a GraphQL schema introspection — there is no
-script to write; it's a genuine, permanent manual step, recorded honestly
-as such rather than faked as Terraform-managed.
+**What do you do when the provider doesn't cover a feature?** First I work
+out which kind of gap I am looking at. A coverage gap means the field or
+behavior exists in the API or UI but no provider resource or argument
+exposes it at the version I have pinned. For that kind, I name the gap
+explicitly, write a small idempotent script next to the `.tf` it
+compensates for, and recheck it every time the provider version bumps. A
+total API gap means nothing exists for any provider or any `gh api` call
+to reach at all. This estate hit exactly one of those:
+fork-PR-approval-for-outside-collaborators has zero REST or GraphQL
+surface, confirmed by exhaustively probing every plausible endpoint path
+and running a GraphQL schema introspection. For a total gap there is no
+script to write. I record it honestly as a genuine, permanent manual step
+instead of faking it as Terraform-managed.
 
 **Why is state location a design decision rather than a default?** Because
-state's job is to describe what actually exists, with a durability that
-matches the durability of the thing it describes. State that outlives the
-resources it describes is drift; state that dies with resources that
-persist is data loss. A single uniform backend choice is provably wrong for
-at least one of two stacks whose resources have genuinely different
-lifetimes — which is exactly this estate's own situation (see War stories).
+state's job is to describe what actually exists, and its durability has to
+match the durability of the thing it describes. State that outlives the
+resources it describes is drift, and state that dies with resources that
+persist is data loss, so I cannot pick one uniform answer and call it
+done. This estate is the concrete case: I have two Terraform stacks whose
+resources have genuinely different lifetimes, and a single backend choice
+is provably wrong for at least one of them, which is exactly what I work
+through in the war story below.
 
 ## Gotchas hit in this project
 

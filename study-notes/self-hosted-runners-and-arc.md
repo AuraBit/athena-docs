@@ -16,41 +16,49 @@ misplaced.
 
 ## Common interview questions
 
-**Ephemeral vs. persistent runners — why does it matter?** An ephemeral
-runner registers, runs exactly one job, then deregisters — no job inherits
-a previous job's filesystem state, credentials, or environment. A
-persistent runner accumulates state across jobs indefinitely; a compromised
-or merely careless job on it can leave something behind for the *next* job
-to find, intentionally or not.
+**Ephemeral vs. persistent runners — why does it matter?** I care about
+this because an ephemeral runner registers, runs exactly one job, and then
+deregisters, so no job ever inherits a previous job's filesystem state,
+credentials, or environment. A persistent runner accumulates state across
+jobs indefinitely instead. If a job on that persistent runner is
+compromised, or just careless, it can leave something behind for the job
+that runs after it to find, whether that was intended or not.
 
-**How do you scope a runner's blast radius?** A dedicated runner group
-(never the org's Default group — see Gotchas), trigger restrictions (no
-PR-family event reaching it at all), a redundant job-level branch
-condition, an org-wide action allowlist bounding what can even execute, and
-the fork-PR-approval gate sitting upstream of all of it. No single one of
-these is sufficient alone; the actual answer is the stack of all of them.
+**How do you scope a runner's blast radius?** I scope it with five
+separate controls stacked together. First, a dedicated runner group, never
+the org's Default group, which I cover under Gotchas. Second, trigger
+restrictions, so no PR-family event reaches this runner at all. Third, a
+redundant job-level branch condition sitting alongside those trigger
+restrictions. Fourth, an org-wide action allowlist bounding what can even
+execute on the runner. Fifth, the fork-PR-approval gate sitting upstream
+of all four of the others. No single one of these five is sufficient by
+itself. The actual answer is the whole stack, all five, together.
 
-**JIT vs. long-lived registration credentials?** JIT
-(`generate-jitconfig`) issues a single-use, short-lived (~1 hour) config
-fetched fresh at every runner start, using a narrowly-scoped PAT
-(`manage_runners:org` only) that is never the runner's own authentication
-credential. A long-lived registration token, once written to disk the
-traditional way (`config.sh --token`), persists indefinitely — if it
-leaks, it grants ongoing registration ability with no expiry.
+**JIT vs. long-lived registration credentials?** JIT, `generate-jitconfig`,
+issues me a single-use config that lasts roughly one hour, fetched fresh at
+every runner start. It uses a narrowly-scoped PAT, `manage_runners:org`
+only, that is never the runner's own authentication credential. A
+long-lived registration token works differently. Written to disk the
+traditional way, with `config.sh --token`, it persists indefinitely, and
+if it leaks, it grants ongoing registration ability with no expiry at all.
+That is exactly the difference that makes me reach for JIT.
 
 **When would you reach for Actions Runner Controller (ARC), and when
-not?** ARC is the right answer at fleet scale: many autoscaling ephemeral
-runners behind a queue, provisioned declaratively via a Kubernetes CRD, no
-manual per-machine provisioning. It's the wrong answer when the requirement
-fixes the runner to one specific local machine with exactly one concurrent
-job ever possible — there is no fleet to autoscale, so ARC's entire value
-proposition doesn't apply.
+not?** I'd reach for ARC at fleet scale, where I need many autoscaling
+ephemeral runners behind a queue, provisioned declaratively through a
+Kubernetes CRD instead of by hand, machine by machine. I would not reach
+for it here, because this estate fixes the runner to one specific local
+machine with exactly one concurrent job ever possible. There is no fleet
+to autoscale, so ARC's entire value proposition just does not apply to
+this estate's requirement.
 
-**What do runner groups actually buy you?** A scoping boundary independent
-of trigger and branch controls — *which repositories are even allowed to
-dispatch a job to this pool at all*, and critically, whether public
-repositories are permitted to use it, since an org's own Default group
-ships that flag off by default.
+**What do runner groups actually buy you?** A runner group buys me a
+scoping boundary that's independent of trigger and branch controls
+entirely. It answers a different question: which repositories are even
+allowed to dispatch a job to this pool at all. Critically, it also decides
+whether public repositories may use the pool, and an org's own Default
+group ships with that flag off by default, which is exactly why I never
+use the Default group here.
 
 ## Gotchas hit in this project
 
