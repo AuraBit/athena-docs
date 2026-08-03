@@ -1,6 +1,6 @@
 name: lint
 
-# athena-docs deliberately has no merge_group trigger — D-02 restricts the
+# athena-docs deliberately has no merge-queue trigger — D-02 restricts the
 # merge queue to athena-app only. This repo carries no pipeline and no
 # promotion-commit path, so a queue would add ceremony with no payoff.
 on:
