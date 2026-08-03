@@ -40,8 +40,13 @@ jobs:
             fi
             # Unmatched square brackets is a cheap, real proxy for a broken
             # markdown link/reference — count opens vs closes per file.
-            OPENS="$(grep -o '\[' "${f}" | wc -l)"
-            CLOSES="$(grep -o '\]' "${f}" | wc -l)"
+            # `grep -o | wc -l` exits 1 when a file has zero matches, which
+            # under `pipefail` would abort the whole script via `set -e`
+            # before it ever reports which file — `|| true` on the pipeline
+            # keeps the (correct, already-captured) count while not letting
+            # a legitimately-zero count kill the run.
+            OPENS="$(grep -o '\[' "${f}" | wc -l || true)"
+            CLOSES="$(grep -o '\]' "${f}" | wc -l || true)"
             if [ "${OPENS}" != "${CLOSES}" ]; then
               echo "FAIL: ${f} has unbalanced [ ] (opens=${OPENS} closes=${CLOSES})"
               FAIL=1
