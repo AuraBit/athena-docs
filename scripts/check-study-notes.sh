@@ -19,6 +19,21 @@
 #   5. The committed index (study-notes/README.md) is current: regenerated
 #      to a temporary file and compared byte for byte against the committed
 #      copy, so this check never mutates the working tree.
+#   6. Every RENDERED ADR link target inside the committed index's Related
+#      ADRs column resolves to a real file. This is a distinct assertion
+#      from Check 3: Check 3 validates the raw "Related ADRs" input field
+#      as authored in each note file, but says nothing about what
+#      gen-study-index.sh actually emits into the generated link -- that
+#      gap is exactly what let a same-repo link-generation bug in
+#      resolve_adr_link() report a false PASS indefinitely (Plan 09 gap
+#      closure). Two link shapes are recognised: a "../"-prefixed relative
+#      path (resolved from study-notes/) and an
+#      "https://github.com/<org>/<repo>/blob/main/<rest>" URL (resolved as
+#      estate/<repo>/<rest>, since all four estate repos are siblings on
+#      disk). Any other shape FAILs as unrecognised, so a future generator
+#      change introducing a third link form cannot slip through unchecked.
+#      This check is read-only: it parses the committed index in place and
+#      never regenerates or writes into study-notes/.
 #
 # Usage: bash scripts/check-study-notes.sh
 
@@ -28,6 +43,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DOCS_ROOT="$(dirname "${SCRIPT_DIR}")"                    # estate/athena-docs
 ESTATE_ROOT="$(dirname "${DOCS_ROOT}")"                   # estate/
 STUDY_DIR="${DOCS_ROOT}/study-notes"
+
+# The org login is a fixed constant, matching gen-study-index.sh's own ORG,
+# so this check's URL classification never depends on the environment.
+ORG="AuraBit"
 
 HEADINGS=(
   "## Mental model"
@@ -168,6 +187,53 @@ if [ -f "${SCRIPT_DIR}/gen-study-index.sh" ]; then
   fi
 else
   bad "gen-study-index.sh not found at ${SCRIPT_DIR}/gen-study-index.sh"
+fi
+echo
+
+# --- Check 6: every RENDERED ADR link target resolves from study-notes/ ---
+# Parses the committed index in place -- never regenerates, never writes.
+INDEX_FILE="${STUDY_DIR}/README.md"
+rendered_offenders=()
+rendered_count=0
+
+if [ -f "${INDEX_FILE}" ]; then
+  while IFS= read -r target; do
+    [ -z "${target}" ] && continue
+    rendered_count=$((rendered_count + 1))
+    case "${target}" in
+      ../*)
+        # Same-repo case: relative to study-notes/ itself.
+        if [ ! -f "${STUDY_DIR}/${target}" ]; then
+          rendered_offenders+=("${target}")
+        fi
+        ;;
+      "https://github.com/${ORG}/"*)
+        # Cross-repo case: <org>/<repo>/blob/main/<rest> -- all four estate
+        # repos are siblings under estate/, so this is locally checkable.
+        after_org="${target#https://github.com/${ORG}/}"
+        repo="${after_org%%/blob/main/*}"
+        rest="${after_org#*/blob/main/}"
+        if [ "${rest}" = "${after_org}" ] || [ ! -f "${ESTATE_ROOT}/${repo}/${rest}" ]; then
+          rendered_offenders+=("${target}")
+        fi
+        ;;
+      *)
+        # Unrecognised shape -- a future generator change introducing a
+        # third link form must not slip through unchecked.
+        rendered_offenders+=("${target}")
+        ;;
+    esac
+  done < <(awk -F'|' 'NF==6 { print $5 }' "${INDEX_FILE}" | grep -oE '\]\([^()]*\)' | sed -E 's/^\]\(//; s/\)$//')
+fi
+
+if [ "${#rendered_offenders[@]}" -gt 0 ]; then
+  bad "rendered ADR link target(s) do not resolve from study-notes/ -- $(printf '%s\n' "${rendered_offenders[@]}" | paste -sd ', ' -)"
+elif [ "${rendered_count}" -eq 0 ] && [ "${#NOTE_FILES[@]}" -gt 0 ]; then
+  # Note files exist but zero link targets were parsed out of the index --
+  # a silently-empty parse is a parser bug, not a vacuous pass.
+  bad "rendered ADR link target(s) do not resolve from study-notes/ -- no link targets were parsed from the index despite ${#NOTE_FILES[@]} note file(s) present"
+else
+  ok "study-notes index: ${rendered_count} rendered ADR link target(s) resolve from study-notes/"
 fi
 echo
 

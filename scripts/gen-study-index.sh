@@ -52,12 +52,20 @@ extract_field_joined() {
 
 resolve_adr_link() {
   # resolve_adr_link <adr-path-relative-to-estate-root>
-  # Returns a markdown link target: relative path if inside this repo
-  # (athena-docs/...), a github.com blob URL otherwise.
+  # Returns a markdown link target: a relative path if inside this repo
+  # (athena-docs/...), a github.com blob URL otherwise. A returned relative
+  # path is relative to study-notes/ — this generator's output always lives
+  # at study-notes/README.md, one directory below the repo root where
+  # athena-docs/docs/adr/ actually is, so the same-repo branch must hop up
+  # one directory. The "../" prefix is a literal constant, never derived
+  # from OUT_FILE/$PWD/realpath: check-study-notes.sh's freshness check runs
+  # this generator against a mktemp path under /tmp and diffs the result
+  # byte-for-byte against the committed index, so an output-path-derived
+  # prefix would render differently there and break that check permanently.
   local path="$1"
   case "${path}" in
     athena-docs/*)
-      printf '%s' "${path#athena-docs/}"
+      printf '../%s' "${path#athena-docs/}"
       ;;
     */*)
       local repo="${path%%/*}"
