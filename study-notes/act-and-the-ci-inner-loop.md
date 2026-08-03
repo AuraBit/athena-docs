@@ -16,26 +16,31 @@ behaviour.
 
 ## Common interview questions
 
-**What can a local runner prove, and what can't it?** It proves the
-workflow file parses, jobs and steps execute in the declared order, and
-each step's own shell logic runs correctly. It cannot prove anything that
-depends on GitHub's own service-side behaviour: Environment approval
-gating, concurrency-group queuing, merge-queue ordering, which physical
-runner a job actually lands on, or org-level Actions policy enforcement.
+**What can a local runner prove, and what can't it?** Running it locally
+proves to me that the workflow file parses, that jobs and steps execute in
+the declared order, and that each step's own shell logic runs correctly.
+What it cannot prove is anything that depends on GitHub's own service-side
+behavior: Environment approval gating, concurrency-group queuing,
+merge-queue ordering, which physical runner a job actually lands on, or
+org-level Actions policy enforcement. I treat all of that as a different
+question entirely, one only a real push can answer.
 
 **How do you shorten a CI feedback loop generally, beyond "run it
-faster"?** Fail fast on the parts that are genuinely reproducible locally
-— syntax, shell logic, unit tests — before ever pushing. Treat anything
-that depends on service-side state as something only a real push can
-verify, and don't try to fake that locally; the actual skill is correctly
-triaging which class a given check belongs to, not making everything
-local by force.
+faster"?** I fail fast on the parts that are genuinely reproducible
+locally, things like syntax, shell logic, and unit tests, before I ever
+push. Anything that depends on service-side state, I treat as something
+only a real push can verify, and I don't try to fake that locally. The
+actual skill I'm exercising is deciding which class a given check belongs
+to. That judgment only counts as judgment when a person owns it, not when
+everything gets forced local regardless of what it actually depends on.
 
-**What would you still verify against a real push?** Everything on the
-"what act does not prove" list: Environment required-reviewer gating,
-concurrency-group serialization, merge-queue behaviour, the exact runner
-label routing, and org-wide Actions policy enforcement (allowlist,
-SHA-pin requirement, default token permissions).
+**What would you still verify against a real push?** Everything already
+on my what-act-cannot-prove list from the last question: Environment
+required-reviewer gating, concurrency-group serialization, merge-queue
+behavior, the exact runner label routing, and org-wide Actions policy
+enforcement. That last one covers the allowlist, the SHA-pin requirement,
+and default token permissions, all three, and I only trust a real push to
+confirm any of it.
 
 ## Gotchas hit in this project
 
