@@ -19,42 +19,50 @@ them conceptually separate is what makes each piece's actual job legible.
 
 ## Common interview questions
 
-**What is a CA actually, and what does "trusted" concretely mean?** A CA is
-just a keypair whose public half sits in a verifier's trust store;
-"trusted" means that specific store (an OS trust bundle, a browser's own
-NSS store, curl's OpenSSL bundle) contains that CA's public certificate and
-will therefore accept anything it signed. mkcert generates a local-only
-root CA and installs it into the host's trust store via `mkcert -install`
-— this project's certificates are "trusted" only on this one developer's
-machine, which is the correct, honestly-scoped answer for a local project,
-not an oversight.
+**What is a CA actually, and what does "trusted" concretely mean?** A
+certificate authority is just a keypair, and trust is just where its
+public half lives. I install mkcert's local-only root CA straight into
+this host's trust store with `mkcert -install`, and that one command
+touches every store that matters here — the OS trust bundle, the
+browser's own NSS store where one exists, and curl's OpenSSL bundle.
+Once the public certificate sits in a store, that store accepts
+anything the CA signed, no questions asked. That also means these
+certificates are trusted on exactly one machine, this developer's own
+laptop, and I call that the correct, honestly scoped answer for a local
+project, not a shortfall.
 
 **Why declarative `Certificate` objects instead of imperatively created
-secrets, in a GitOps estate?** An imperative `kubectl create secret tls`
-becomes permanent, unreconciled drift the instant ArgoCD starts watching a
-cluster in Phase 3 — there is no git commit for ArgoCD to compare that
-Secret against, so it silently sits outside the reconciliation loop
-forever. Declaring `Certificate` manifests in git lets cert-manager
-reconcile and auto-renew them the same way everything else in this estate
-is reconciled — matching the declarative-over-imperative principle (D-13).
-Raw `kubectl create secret tls` remains a documented break-glass fallback,
-never the default path.
+secrets, in a GitOps estate?** We declare `Certificate` manifests in
+git instead of running `kubectl create secret tls` by hand, because the
+imperative version becomes permanent drift the moment ArgoCD starts
+watching this cluster in Phase 3. There's no git commit for ArgoCD to
+compare that secret against, so it just sits outside the reconciliation
+loop forever, silently. A declared `Certificate` object gives
+cert-manager something to reconcile and auto-renew the same way
+everything else in this estate gets reconciled, which is exactly the
+declarative-over-imperative principle we wrote down as D-13. I still
+keep the raw `kubectl create secret tls` command around as a documented
+break-glass fallback, but it's never the default path.
 
 **How does wildcard DNS differ from hosts entries, and when is each
-right?** A dnsmasq `address=/domain/IP` rule answers infinite subdomains
-with one config line; `/etc/hosts` needs a literal line per subdomain and
-has no wildcard concept at all. Hosts entries are right for a handful of
-fixed hostnames; wildcard DNS is right the moment an estate serves
-arbitrary `*.athena.net` subdomains, which is exactly this project's case.
+right?** One dnsmasq `address=/domain/IP` rule answers every subdomain
+under a domain, full stop. `/etc/hosts` can't do that at all — it needs
+its own literal line for every single subdomain, and it has no wildcard
+concept whatsoever. So I reach for hosts entries when there's a small,
+fixed handful of hostnames, and I reach for wildcard DNS the moment an
+estate needs to serve arbitrary subdomains under `*.athena.net`, which
+is exactly this project's case.
 
 **What changes when this becomes a real ACME issuer (e.g. Let's
-Encrypt)?** Only the `ClusterIssuer`'s backing changes — from a local CA
-secret to an ACME solver (HTTP-01 or DNS-01 challenge) — and the CA becomes
-a publicly-trusted one instead of a locally-installed root. The
-`Certificate` object shape and cert-manager's own reconciliation loop stay
-identical either way, which is exactly why using cert-manager here (instead
-of a bespoke local-only TLS script) is the right practice even for a
-project that will never actually talk to a real ACME server.
+Encrypt)?** Only one thing changes, and it's the `ClusterIssuer`'s
+backing. Swap the local CA secret for an ACME solver, either an HTTP-01
+or a DNS-01 challenge, and the CA behind every certificate becomes a
+publicly trusted one instead of a root I installed myself. The
+`Certificate` object shape stays identical, and cert-manager's own
+reconciliation loop stays identical too. That's exactly why I used
+cert-manager here instead of writing a bespoke local-only TLS script —
+it's the right practice even for a project that will never actually
+talk to a real ACME server.
 
 ## Gotchas hit in this project
 

@@ -18,35 +18,44 @@ programs the Envoy proxy data plane to match.
 
 ## Common interview questions
 
-**What did Ingress get wrong that Gateway API fixes?** Ingress bundled
-infrastructure and application concerns into a single object type, with
-anything beyond basic host/path routing pushed into vendor-specific
-annotations — no standard, portable way to express traffic splitting,
-header manipulation, or a clean ownership split. Gateway API expresses all
-of that with typed, portable resources and genuine RBAC separation between
-who owns the `Gateway` and who owns `HTTPRoute`s.
+**What did Ingress get wrong that Gateway API fixes?** Ingress crammed
+infrastructure ownership and application ownership into one object type,
+and that's the actual problem Gateway API fixes. Anything beyond basic
+host and path routing had to get pushed into vendor-specific annotations,
+so there was no standard, portable way to express traffic splitting or
+header manipulation, and no clean line between who owns the ingress and
+who owns the routes. We use Gateway API instead because it splits that
+ownership for real: typed, portable resources with genuine RBAC
+separation between whoever owns the `Gateway` and whoever owns the
+`HTTPRoute`s.
 
-**Why is ingress-nginx not the answer in 2026?** Its best-effort maintenance
-ended March 2026 — no further releases, bugfixes, or CVE patches, ever.
-Building new local-routing configuration on a retired controller undermines
-a project whose entire value proposition is demonstrating current,
-production-grade practice.
+**Why is ingress-nginx not the answer in 2026?** We ruled out
+ingress-nginx here, and the date is why. Its best-effort maintenance
+ended in March 2026, so there are no more releases, no more bug fixes,
+and no more CVE patches, ever. I wasn't going to build this project's
+local routing on a controller that's already retired, not when the
+whole point of this estate is demonstrating current, production-grade
+practice.
 
 **How does traffic splitting work, and why does Phase 4's progressive
-delivery depend on it?** An `HTTPRoute`'s `backendRefs` each carry a
-`weight`; a conformant Gateway API implementation routes traffic
-proportionally across backends by that weight. This is the exact mechanism
-Argo Rollouts' canary steps drive under the hood — weighted traffic
-splitting between ReplicaSets — which is why the data-plane's Gateway API
-conformance quality (not just "does it route") mattered when choosing an
-implementation.
+delivery depend on it?** Each backend listed under an `HTTPRoute`'s
+`backendRefs` carries its own weight. A conformant Gateway API
+implementation reads those weights and splits traffic across the
+backends proportionally, so a `backendRefs` entry weighted three times
+higher than another gets three times the traffic. That's the exact
+mechanism Argo Rollouts drives under the hood for its canary steps in
+Phase 4, shifting weight between ReplicaSets step by step. That's why I
+cared about the data plane's Gateway API conformance quality here, not
+just whether it could route at all.
 
 **What's the difference between an implementation and the API?** Gateway
-API is a spec: a fixed set of CRDs (`GatewayClass`, `Gateway`, `HTTPRoute`,
-etc.) and their expected semantics. Envoy Gateway, Traefik, Cilium, and
-others are *implementations* — controllers that watch those same CRDs and
-translate them into their own proxy's configuration. Same API surface for
-the cluster operator regardless of which implementation sits underneath.
+API is the spec, not a running thing: a fixed set of CRDs like
+`GatewayClass`, `Gateway`, and `HTTPRoute`, plus the semantics those
+objects are expected to carry. Envoy Gateway is one controller that
+actually implements that spec — it watches those same CRDs and programs
+its own proxy to match, the same way Traefik or Cilium would watch the
+identical CRDs and program a different proxy. Whichever controller sits
+underneath, I see the same API surface as the cluster operator.
 
 ## Gotchas hit in this project
 
