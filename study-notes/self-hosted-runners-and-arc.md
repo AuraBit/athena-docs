@@ -35,13 +35,14 @@ of all four of the others. No single one of these five is sufficient by
 itself. The actual answer is the whole stack, all five, together.
 
 **JIT vs. long-lived registration credentials?** JIT, `generate-jitconfig`,
-issues me a single-use config that lasts roughly one hour, fetched fresh at
-every runner start. It uses a narrowly-scoped PAT, `manage_runners:org`
-only, that is never the runner's own authentication credential. A
-long-lived registration token works differently. Written to disk the
-traditional way, with `config.sh --token`, it persists indefinitely, and
-if it leaks, it grants ongoing registration ability with no expiry at all.
-That is exactly the difference that makes me reach for JIT.
+is what I reach for: it issues a single-use config that lasts roughly one
+hour, fetched fresh at every runner start. It uses a narrowly-scoped PAT,
+`manage_runners:org` only, that is never the runner's own authentication
+credential. A long-lived registration token works differently. Written to
+disk the traditional way, with `config.sh --token`, it persists
+indefinitely, and if it leaks, it grants ongoing registration ability with
+no expiry at all. That is exactly the difference that makes JIT my
+default.
 
 **When would you reach for Actions Runner Controller (ARC), and when
 not?** I'd reach for ARC at fleet scale, where I need many autoscaling

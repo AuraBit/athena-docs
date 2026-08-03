@@ -34,6 +34,28 @@
 #      change introducing a third link form cannot slip through unchecked.
 #      This check is read-only: it parses the committed index in place and
 #      never regenerates or writes into study-notes/.
+#   7. Every answer body under every note's "Common interview questions"
+#      heading holds the four mechanically decidable parts of the
+#      spoken-answer standard in study-notes/_template.md: at least one
+#      first-person marker (the register defect this check exists for --
+#      every one of the ten original notes matched this zero times), zero
+#      asterisks (emphasis carries no meaning that survives being spoken),
+#      zero semicolons (a semicolon chain does not survive being spoken
+#      either), and no single sentence over 45 words. A note whose
+#      interview section parses to zero answer bodies FAILs rather than
+#      passing vacuously, the same non-vacuous-pass discipline Check 6
+#      already applies to a zero-target link parse -- a future note
+#      written in a different shape must fail loudly, not validate
+#      nothing while reporting green. What this check CANNOT decide: no
+#      mechanical assertion can tell whether an answer actually sounds
+#      like a person when read aloud. That is why it is a floor and not
+#      the bar -- the real bar is the read-aloud-verbatim judgment stated
+#      in study-notes/_template.md, and that judgment stays human. This
+#      check exists at all because a register defect shipped through a
+#      full phase verification undetected: structure and coverage were
+#      measured here from Plan 08 onward, and delivery -- how an answer
+#      actually reads -- was not, until this check (Plan 12, closing UAT
+#      gap G-01-2's contributing cause).
 #
 # Usage: bash scripts/check-study-notes.sh
 
@@ -234,6 +256,75 @@ elif [ "${rendered_count}" -eq 0 ] && [ "${#NOTE_FILES[@]}" -gt 0 ]; then
   bad "rendered ADR link target(s) do not resolve from study-notes/ -- no link targets were parsed from the index despite ${#NOTE_FILES[@]} note file(s) present"
 else
   ok "study-notes index: ${rendered_count} rendered ADR link target(s) resolve from study-notes/"
+fi
+echo
+
+# --- Check 7: spoken-register floor across every answer body (Plan 12) ---
+# Parses the Common interview questions section of every note file in
+# place -- never writes into study-notes/. Splits the section into
+# paragraphs at blank lines (each note's own convention: one blank-line
+# separated paragraph per bold-question-then-answer block), dewraps each
+# paragraph onto a single line, strips backticked spans first so a
+# backticked identifier is never judged as prose, then strips the leading
+# bold-delimited question, leaving the answer body. Four assertions per
+# answer body: at least one first-person marker, zero asterisks, zero
+# semicolons, no sentence over 45 words.
+FP_PATTERN="\\b(i|we|our|my|i'd|we'd|i've|we've|i'll|we'll)\\b"
+total_answer_bodies=0
+
+for f in "${NOTE_FILES[@]}"; do
+  base="$(basename "${f}")"
+  note_body_count=0
+  offenders=()
+
+  sec="$(awk '/^## Common interview questions$/{on=1;next} on&&/^## /{exit} on' "${f}")"
+
+  while IFS= read -r para; do
+    [ -z "${para}" ] && continue
+    case "${para}" in
+      '**'*) : ;;
+      *) continue ;;
+    esac
+
+    note_body_count=$((note_body_count + 1))
+    total_answer_bodies=$((total_answer_bodies + 1))
+
+    stripped="$(printf '%s' "${para}" | sed 's/`[^`]*`//g')"
+    body="$(printf '%s' "${stripped}" | sed -E 's/^\*\*[^*]*\*\*[[:space:]]*//')"
+    snippet="$(printf '%s' "${body}" | cut -c1-60)"
+
+    fp_count="$(printf '%s' "${body}" | grep -ciE "${FP_PATTERN}")"
+    if [ "${fp_count}" -eq 0 ]; then
+      offenders+=("no first-person marker -- \"${snippet}...\"")
+    fi
+
+    ast_count="$(printf '%s' "${body}" | tr -cd '*' | wc -c | tr -d ' ')"
+    if [ "${ast_count}" -gt 0 ]; then
+      offenders+=("emphasis markup (asterisk) in answer body -- \"${snippet}...\"")
+    fi
+
+    sc_count="$(printf '%s' "${body}" | tr -cd ';' | wc -c | tr -d ' ')"
+    if [ "${sc_count}" -gt 0 ]; then
+      offenders+=("semicolon in answer body -- \"${snippet}...\"")
+    fi
+
+    long_count="$(printf '%s\n' "${body}" | sed -E 's/([.?!]) /\1\n/g' | awk 'NF>45{c++} END{print c+0}')"
+    if [ "${long_count}" -gt 0 ]; then
+      offenders+=("sentence over 45 words in answer body -- \"${snippet}...\"")
+    fi
+  done < <(printf '%s\n' "${sec}" | awk 'BEGIN{RS="";FS="\n"}{line="";for(i=1;i<=NF;i++){line=line (i>1?" ":"") $i} print line}')
+
+  if [ "${note_body_count}" -eq 0 ]; then
+    bad "${base}: spoken-register violation(s) in Common interview questions -- parsed to zero answer bodies despite the note being present"
+  elif [ "${#offenders[@]}" -gt 0 ]; then
+    bad "${base}: spoken-register violation(s) in Common interview questions -- $(printf '%s\n' "${offenders[@]}" | paste -sd ', ' -)"
+  fi
+done
+
+if [ "${total_answer_bodies}" -gt 0 ]; then
+  ok "spoken register: ${total_answer_bodies} answer bodies validated across every note's Common interview questions section"
+else
+  bad "spoken register: no answer bodies were parsed from any note -- a note directory with zero parseable answers is itself a failure"
 fi
 echo
 
