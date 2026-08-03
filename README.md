@@ -22,12 +22,12 @@ for the full story). This repo is the home for:
   and the CI/CD control-flow and trust-boundary picture
   ([`diagrams/ci-cd-topology.md`](diagrams/ci-cd-topology.md)).
 - **Per-tool interview study notes** (`study-notes/`) — one file per tool in
-  the stack (Terraform, ArgoCD, Argo Rollouts, Vault, SonarQube, OPA, Trivy,
-  Checkov, Gitleaks, GitHub Actions, Helm, Kustomize...), each following the
-  same template: mental model, common interview questions, gotchas actually
-  hit in this project, war stories, and a command cheat-sheet. The
-  study-notes index is script-generated the same way the ADR index is; see
-  `study-notes/README.md` once Plan 08 lands it.
+  the stack, each following the same five-section
+  [template](study-notes/_template.md): mental model, common interview
+  questions, gotchas actually hit in this project, war stories, and a
+  command cheat-sheet. The index is script-generated the same way the ADR
+  index is — see the generated
+  [**study-notes index**](study-notes/README.md).
 - **Runbooks and drill logs** — recovery procedures (the world-rebuild
   runbook lives in `athena-infra` since it's infra-specific; estate-wide
   drills land here) and records of incident-simulation practice.
@@ -90,5 +90,6 @@ athena-docs/
 This repository moved past skeleton with Plan 07: `docs/adr/` now carries
 nine estate-level ADRs plus the generated master index spanning all four
 repos, and `diagrams/` carries the estate-architecture and CI/CD-topology
-pictures. `study-notes/` remains a skeleton — the first study notes land in
-Plan 08.
+pictures. Plan 08 filled out `study-notes/`: ten notes covering every tool
+Phase 1 introduced, in one enforced format, with a generated and
+mechanically-hygiene-checked index of their own.
