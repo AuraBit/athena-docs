@@ -1,0 +1,53 @@
+name: lint
+
+# athena-docs deliberately has no merge_group trigger — D-02 restricts the
+# merge queue to athena-app only. This repo carries no pipeline and no
+# promotion-commit path, so a queue would add ceremony with no payoff.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Org default is already read-only (actions-security.tf); this workflow
+# states its own baseline explicitly too, per the shared security shape
+# every workflow in this estate copies (D-08).
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      # actions/checkout pinned to a full 40-character commit SHA, not a
+      # mutable tag — the control against the tj-actions-style supply-chain
+      # compromise, where a tag was repointed at malicious code after the
+      # fact. A SHA is immutable; a tag is not.
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: markdown structure check — no empty headings, no unmatched link brackets
+        run: |
+          set -euo pipefail
+          FAIL=0
+          while IFS= read -r -d '' f; do
+            # Empty heading: a '#' line with nothing but whitespace after the markers.
+            if grep -nE '^#+[[:space:]]*$' "${f}" >/dev/null; then
+              echo "FAIL: ${f} has an empty heading line"
+              FAIL=1
+            fi
+            # Unmatched square brackets is a cheap, real proxy for a broken
+            # markdown link/reference — count opens vs closes per file.
+            OPENS="$(grep -o '\[' "${f}" | wc -l)"
+            CLOSES="$(grep -o '\]' "${f}" | wc -l)"
+            if [ "${OPENS}" != "${CLOSES}" ]; then
+              echo "FAIL: ${f} has unbalanced [ ] (opens=${OPENS} closes=${CLOSES})"
+              FAIL=1
+            fi
+          done < <(find . -path ./.git -prune -o -type f -name '*.md' -print0)
+          if [ "${FAIL}" -ne 0 ]; then
+            exit 1
+          fi
+          echo "All markdown files passed the structure check."
