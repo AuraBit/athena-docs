@@ -25,7 +25,7 @@ graph TB
                 APPEG[Envoy Gateway<br/>Gateway API]
                 APPCM[cert-manager<br/>ClusterIssuer mkcert-issuer]
                 APPNS[dev / stg / prod namespaces]
-                APPFUTURE[FUTURE Phase 3 - Athena workloads]
+                APPFUTURE[Athena workloads: media + datastores + athena-shop in dev, stg, prod namespaces]
             end
 
             subgraph PLATFORM[k3d cluster platform - loopback 127.0.0.2 port 443]
@@ -34,7 +34,7 @@ graph TB
                 PLATAGENTS[2x agent, untainted]
                 PLATEG[Envoy Gateway<br/>Gateway API]
                 PLATCM[cert-manager<br/>ClusterIssuer mkcert-issuer]
-                PLATARGO[FUTURE Phase 3 - ArgoCD]
+                PLATARGO[ArgoCD 3.4.6 hub — app cluster registered as remote destination]
                 PLATOBS[FUTURE Phase 4 - Prometheus, Grafana, Loki, Alloy]
                 PLATVAULT[FUTURE Phase 5 - Vault]
                 PLATSONAR[FUTURE Phase 7 - SonarQube]
@@ -60,7 +60,8 @@ graph TB
     LOCALSTACK -.host.k3d.internal 4566.-> PLATFORM
     LOCALSTACK -.localhost 4566, host and CI and Terraform.-> HOST
 
-    class APPFUTURE,PLATARGO,PLATOBS,PLATVAULT,PLATSONAR future;
+    class PLATOBS,PLATVAULT,PLATSONAR future;
+    %% Phase 3 delivered APPFUTURE and PLATARGO (03-10)
 ```
 
 ## Legend

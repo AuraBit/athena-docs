@@ -51,9 +51,9 @@ graph TB
 
     subgraph PROMOTION[Promotion path, Phase 3 onward]
         direction LR
-        APPBUILD[FUTURE Phase 3 - athena-app real CI build and scan]
-        GITOPSCOMMIT[FUTURE Phase 3 - commit new image tag to athena-gitops]
-        ARGOCD[FUTURE Phase 3 - ArgoCD, platform cluster]
+        APPBUILD[media-ci: lint-unit, ephemeral-Postgres migration gate, BuildKit build, dual Trivy scan, publish immutable short-SHA tag]
+        GITOPSCOMMIT[gitops-handoff: bot commits dev pin + rendered manifests; promote.yml gates stg and prod]
+        ARGOCD[ArgoCD hub on platform cluster, 3 roots + 9 unit Applications]
         APPCLUSTER[App cluster, dev / stg / prod namespaces<br/>exist today, empty of workloads]
     end
 
@@ -80,22 +80,26 @@ graph TB
     GITOPSCOMMIT -.writes to.-> GITOPSREPO
     ENVIRONMENTS -.gates stg and prod writes to.-> GITOPSCOMMIT
 
-    class APPBUILD,GITOPSCOMMIT,ARGOCD future;
+    %% Phase 3 delivered APPBUILD/GITOPSCOMMIT/ARGOCD — future class removed (03-10)
     class BOUNDARY1,BOUNDARY2,NOTE1,NOTE2 boundary;
 ```
 
 ## Promotion path status
 
-The promotion path drawn above (real CI build/scan on `athena-app`, the
-commit into `athena-gitops`, and ArgoCD) is marked future/Phase 3 in full,
-not just the ArgoCD box — `athena-app`'s current `lint.yml` is an explicit
-placeholder Phase 3 replaces (see `athena-app` ADR-0001), and no automated
-gitops-commit step exists yet. The one piece of this path that is real
-today is the destination: `athena-app` cluster's `dev`/`stg`/`prod`
-namespaces exist and are verified (`scripts/verify-clusters.sh`), just
-empty of any Athena workload until Phase 3 lands them. Drawing the whole
-pipeline as already-real would have overstated this phase's actual state —
-the prohibition this diagram's threat model exists to prevent.
+Phase 3 delivered the full path, live: `media-ci.yml` on `athena-app` runs
+lint/unit, an ephemeral-Postgres migration gate (up -> down-to-empty -> up),
+a registry-cached BuildKit build, a dual-invocation Trivy scan (SARIF
+reporting + blocking HIGH/CRITICAL `--ignore-unfixed` gate with a
+justification-linted `.trivyignore`), and — on default-branch merges only —
+publishes the exact scanned artifact under an immutable short-SHA tag and
+hands the tag off to `athena-gitops` as a bot commit carrying both the dev
+overlay pin and its re-rendered manifests. `render.yml` enforces the
+rendered-manifests invariant as a check; `promote.yml` copies pins forward
+dev -> stg -> prod behind GitHub Environment approval with the rendered diff
+in the run summary; rollback is one revert. ArgoCD (hub on the platform
+cluster) syncs three roots and nine unit Applications across dev/stg/prod —
+all Synced/Healthy at Phase 3 close. Dev is automatic; stg/prod move only
+through the gated promotion.
 
 ## Trust boundaries, named explicitly
 
