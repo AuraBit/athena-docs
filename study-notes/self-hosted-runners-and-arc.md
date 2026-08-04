@@ -3,8 +3,9 @@
 * Tool: GitHub Actions self-hosted runner (JIT-config, ephemeral)
 * Summary: A self-hosted runner is your own machine volunteering to execute other people's code on request — every design decision here bounds that trust
 * Phase introduced: 01-local-foundations-repo-governance
-* Related ADRs: athena-infra/docs/adr/0005-ephemeral-jit-self-hosted-runner.md
-* Last reviewed: 2026-08-03
+* Related ADRs: athena-infra/docs/adr/0005-ephemeral-jit-self-hosted-runner.md,
+  athena-infra/docs/adr/0006-ci-06-trust-boundary-amendment.md
+* Last reviewed: 2026-08-04
 
 ## Mental model
 
@@ -27,12 +28,36 @@ that runs after it to find, whether that was intended or not.
 **How do you scope a runner's blast radius?** I scope it with five
 separate controls stacked together. First, a dedicated runner group, never
 the org's Default group, which I cover under Gotchas. Second, trigger
-restrictions, so no PR-family event reaches this runner at all. Third, a
-redundant job-level branch condition sitting alongside those trigger
+restrictions bounding exactly which contexts can reach this runner, a
+narrower guard than a blanket no-PR rule since Phase 2's trust-boundary
+amendment, which I answer fully below. Third, a redundant job-level
+branch or repository condition sitting alongside those trigger
 restrictions. Fourth, an org-wide action allowlist bounding what can even
 execute on the runner. Fifth, the fork-PR-approval gate sitting upstream
 of all four of the others. No single one of these five is sufficient by
 itself. The actual answer is the whole stack, all five, together.
+
+**When can a pull request reach the self-hosted runner, and doesn't that
+reopen the pwn-request risk CI-06 exists for?** A same-repository pull
+request can reach it, a fork pull request never can, and I need to
+explain why that split is safe rather than just asserting it. The
+pwn-request attack is specific to forks, it requires the proposed code to
+come from someone who does not already have write access to this
+repository. A branch that lives in this same repository can only exist
+because someone with write access pushed it here, and that person could
+already push straight to `main` and reach this runner immediately, no
+pull request, no review, no waiting. So admitting same-repository pull
+requests changes when a trusted person's code executes, one pull request
+earlier than a bare push to `main`, not who is allowed to make it
+execute. Fork pull requests still never reach this runner, the guard is
+one boolean, the fork's own repository name never equals this
+repository's name, and the organisation-level fork-approval policy stays
+in place as a fully separate, independent control on top of it. I name
+the residual risk honestly rather than hiding it. A compromised
+collaborator account, or a malicious commit from a legitimate
+collaborator, now reaches self-hosted execution one step earlier in the
+lifecycle than before this amendment. I accept that at this estate's
+stated ASVS Level 1 posture, recorded in ADR-0006.
 
 **JIT vs. long-lived registration credentials?** JIT, `generate-jitconfig`,
 is what I reach for: it issues a single-use config that lasts roughly one
@@ -48,10 +73,10 @@ default.
 not?** I'd reach for ARC at fleet scale, where I need many autoscaling
 ephemeral runners behind a queue, provisioned declaratively through a
 Kubernetes CRD instead of by hand, machine by machine. I would not reach
-for it here, because this estate fixes the runner to one specific local
-machine with exactly one concurrent job ever possible. There is no fleet
-to autoscale, so ARC's entire value proposition just does not apply to
-this estate's requirement.
+for it here, because this estate fixes the runner pool to one specific
+local machine running a small, fixed number of instances, not an
+autoscaling fleet. There is no fleet to autoscale, so ARC's entire value
+proposition just does not apply to this estate's requirement.
 
 **What do runner groups actually buy you?** A runner group buys me a
 scoping boundary that's independent of trigger and branch controls
@@ -60,6 +85,17 @@ allowed to dispatch a job to this pool at all. Critically, it also decides
 whether public repositories may use the pool, and an org's own Default
 group ships with that flag off by default, which is exactly why I never
 use the Default group here.
+
+**You run more than one runner instance now, how does that change the
+blast-radius math?** I run a small pool, two templated systemd units by
+default, each independently JIT-registered and ephemeral, so pull-request
+plans stay responsive instead of queueing behind an in-flight apply. Each
+instance is root-equivalent on this host through its own `docker`-group
+membership, the same trust cost I already accept for one instance, so
+the number of instances is genuinely the number of concurrent jobs
+holding that authority at any moment, not a free multiplier. That is
+exactly why I keep the pool deliberately small, two or three instances,
+rather than sizing it for throughput the way I would size a real fleet.
 
 ## Gotchas hit in this project
 
