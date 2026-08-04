@@ -14,10 +14,10 @@ model, and what must be true for the hub to reach the spoke?
 
 ## Considered Options
 
-1. **Per-cluster ArgoCD** — rejected: doubles upgrade/RBAC/SSO surface and
+* **Per-cluster ArgoCD** — rejected: doubles upgrade/RBAC/SSO surface and
    models nothing the estate's interview story needs; fleet operators
    consolidate the control plane.
-2. **Hub-and-spoke** (chosen): one ArgoCD on the platform cluster; the app
+* **Hub-and-spoke** (chosen): one ArgoCD on the platform cluster; the app
    cluster is a registered remote destination and runs zero ArgoCD
    components (asserted live by verify-argocd.sh).
 
